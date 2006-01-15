@@ -23,5 +23,6 @@ Rake::RDocTask.new(:rdoc) do |rdoc|
   rdoc.title    = 'Acts As State Machine'
   rdoc.options << '--line-numbers --inline-source'
   rdoc.rdoc_files.include('README')
+  rdoc.rdoc_files.include('TODO')
   rdoc.rdoc_files.include('lib/**/*.rb')
 end
