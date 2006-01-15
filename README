@@ -3,6 +3,12 @@
 This act gives an Active Record model the ability to act as a finite state
 machine (FSM).
 
+Acquire via subversion at:
+
+http://elitists.textdriven.com/svn/plugins/acts_as_state_machine/trunk
+
+If prompted, use the user/pass anonymous/anonymous.
+
 == Example
 
 	class Order < ActiveRecord::Base
