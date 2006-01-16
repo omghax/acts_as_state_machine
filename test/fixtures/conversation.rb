@@ -1,4 +1,6 @@
 class Conversation < ActiveRecord::Base
+  attr_writer :can_close
+  
   acts_as_state_machine :initial => :needs_attention, :column => 'state_machine'
   
   state :needs_attention
@@ -20,7 +22,8 @@ class Conversation < ActiveRecord::Base
   end
   
   event :close do
-    transitions :to => :closed,            :from => [:read, :awaiting_response]
+    transitions :to => :closed,            :from => [:read, :awaiting_response], :guard => Proc.new {|o| o.can_close?}
+    transitions :to => :read,              :from => [:read, :awaiting_response]
   end
   
   event :junk do
@@ -29,5 +32,9 @@ class Conversation < ActiveRecord::Base
   
   event :unjunk do
     transitions :to => :closed,            :from => :junk
+  end
+  
+  def can_close?
+    @can_close
   end
 end

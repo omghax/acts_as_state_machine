@@ -10,6 +10,30 @@ module RailsStudio                   #:nodoc:
         base.extend ActMacro
       end
       
+      module SupportingClasses
+        class StateTransition
+          attr_reader :from, :to
+          def initialize(from, to, guard=nil)
+            @from, @to, @guard = from, to, guard
+          end
+          
+          def guard(obj)
+            @guard ? @guard.call(obj) : true
+          end
+          
+          def ==(obj)
+            @from == obj.from && @to == obj.to
+          end
+        end
+        
+        class TransitionCollector
+          attr_reader :opts
+          def transitions(opts)
+            (@opts ||= []) << opts
+          end
+        end
+      end
+      
       module ActMacro
         # Configuration options are
         #
@@ -46,7 +70,14 @@ module RailsStudio                   #:nodoc:
       
         # Returns what the next state for a given event would be, as a Ruby symbol.
         def next_state_for_event(event)
-          self.class.read_inheritable_attribute(:transition_table)[event.to_sym][current_state]
+          ns = next_states_for_event(event)
+          ns.empty? ? nil : ns.first.to
+        end
+
+        def next_states_for_event(event)
+          self.class.read_inheritable_attribute(:transition_table)[event.to_sym].select do |s|
+            s.from == current_state
+          end
         end
       end
 
@@ -82,23 +113,30 @@ module RailsStudio                   #:nodoc:
         def event(event, &block)
           class_eval <<-EOV
           def #{event.to_s}!
-            ns = next_state_for_event(:#{event.to_s})
-            if ns
-              self.update_attribute(self.class.state_column, ns.to_s)
-              if (p = self.class.read_inheritable_attribute(:states)[ns])
-                p.call self
+            next_states = next_states_for_event(:#{event.to_s})
+            next_states.each do |ns|
+              if ns.guard(self)
+                self.update_attribute(self.class.state_column, ns.to.to_s)
+                if (p = self.class.read_inheritable_attribute(:states)[ns.to])
+                  p.call self
+                end
+                break
               end
             end
           end
           EOV
           
           tt = read_inheritable_attribute(:transition_table)
-          tt[event.to_sym] ||= {}
+          tt[event.to_sym] ||= []
           
           if block_given?
-            trannys = instance_eval(&block)
-            Array(trannys[:from]).each do |s|
-              tt[event.to_sym][s.to_sym] = trannys[:to]
+            t = SupportingClasses::TransitionCollector.new
+            t.instance_eval(&block)
+            trannys = t.opts
+            trannys.each do |tranny|
+              Array(tranny[:from]).each do |s|
+                tt[event.to_sym] << SupportingClasses::StateTransition.new(s.to_sym, tranny[:to], tranny[:guard])
+              end
             end
           end
         end

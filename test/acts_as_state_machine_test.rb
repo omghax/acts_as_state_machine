@@ -1,10 +1,12 @@
 require File.dirname(__FILE__) + '/test_helper'
 
+include RailsStudio::Acts::StateMachine
+
 class ActsAsStateMachineTest < Test::Unit::TestCase
   fixtures :conversations
   
   def test_no_initial_value_raises_exception
-    assert_raise(RailsStudio::Acts::StateMachine::NoInitialState) {
+    assert_raise(NoInitialState) {
       Person.acts_as_state_machine({})
     }
   end
@@ -38,9 +40,9 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
   def test_transition_table
     tt = Conversation.transition_table
     
-    assert_equal tt[:new_message][:read],              :needs_attention
-    assert_equal tt[:new_message][:closed],            :needs_attention
-    assert_equal tt[:new_message][:awaiting_response], :needs_attention
+    assert tt[:new_message].include?(SupportingClasses::StateTransition.new(:read, :needs_attention))
+    assert tt[:new_message].include?(SupportingClasses::StateTransition.new(:closed, :needs_attention))
+    assert tt[:new_message].include?(SupportingClasses::StateTransition.new(:awaiting_response, :needs_attention))
   end
 
   def test_next_state_for_event
@@ -51,6 +53,24 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
   def test_change_state
     c = Conversation.create
     c.view!
+    assert_equal :read, c.current_state
+  end
+  
+  def test_can_go_from_read_to_closed_because_guard_passes
+    c = Conversation.create
+    c.can_close = true
+    c.view!
+    c.reply!
+    c.close!
+    assert_equal :closed, c.current_state
+  end
+  
+  def test_cannot_go_from_read_to_closed_because_of_guard
+    c = Conversation.create
+    c.can_close = false
+    c.view!
+    c.reply!
+    c.close!
     assert_equal :read, c.current_state
   end
   
@@ -66,13 +86,13 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
   
   def test_transition_block_is_executed
     c = Conversation.create
+    c.can_close = true
     c.view!
 
     # This should execute the block
     c.close!
     assert c.reload.closed?
   end
-  
   
   def test_find_all_in_state
     cs = Conversation.find_in_state(:all, :read)
@@ -113,13 +133,13 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
   end
   
   def test_find_in_invalid_state_raises_exception
-    assert_raise(RailsStudio::Acts::StateMachine::InvalidState) {
+    assert_raise(InvalidState) {
       Conversation.find_in_state(:all, :dead)
     }
   end
   
   def test_count_in_invalid_state_raises_exception
-    assert_raise(RailsStudio::Acts::StateMachine::InvalidState) {
+    assert_raise(InvalidState) {
       Conversation.count_in_state(:dead)
     }
   end
