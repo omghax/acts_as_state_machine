@@ -6,8 +6,6 @@
 * Make listing states optional since they can be inferred from the events.
   Only required to list a state if you want to define a transition block for it.
 
-* Transition guards
-
 * Real transition actions and state entry/exit actions
 
 * Default states
