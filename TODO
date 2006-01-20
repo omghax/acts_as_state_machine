@@ -9,3 +9,5 @@
 * Real transition actions and state entry/exit actions
 
 * Default states
+
+* Auto add state query methods, so if there's a state :closed, add a #closed?
