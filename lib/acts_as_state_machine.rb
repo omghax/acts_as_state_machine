@@ -159,6 +159,12 @@ module RailsStudio                   #:nodoc:
         # end
         def state(state, proc=nil)
           read_inheritable_attribute(:states)[state.to_sym] = proc
+          
+          class_eval <<-EOS
+            def #{state.to_s}?
+              current_state == :#{state.to_s}
+            end
+          EOS
         end
         
         # Wraps ActiveRecord::Base.find to conveniently find all records in

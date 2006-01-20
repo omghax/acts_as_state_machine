@@ -22,6 +22,7 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
   def test_initial_state
     c = Conversation.create
     assert_equal :needs_attention, c.current_state
+    assert c.needs_attention?
   end
   
   def test_states_were_set
@@ -33,6 +34,13 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
   def test_event_methods_created
     c = Conversation.create
     %w(new_message! view! reply! close! junk! unjunk!).each do |event|
+      assert c.respond_to?(event)
+    end
+  end
+
+  def test_query_methods_created
+    c = Conversation.create
+    %w(needs_attention? read? closed? awaiting_response? junk?).each do |event|
       assert c.respond_to?(event)
     end
   end
@@ -53,7 +61,7 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
   def test_change_state
     c = Conversation.create
     c.view!
-    assert_equal :read, c.current_state
+    assert c.read?
   end
   
   def test_can_go_from_read_to_closed_because_guard_passes
