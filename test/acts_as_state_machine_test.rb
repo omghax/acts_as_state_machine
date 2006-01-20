@@ -91,15 +91,30 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
     c.new_message!
     assert_equal :junk, c.current_state
   end
-  
-  def test_transition_block_is_executed
+    
+  def test_entry_action_executed
     c = Conversation.create
-    c.can_close = true
+    c.read_enter = false
     c.view!
-
-    # This should execute the block
-    c.close!
-    assert c.reload.closed?
+    assert c.read_enter
+  end
+  
+  def test_exit_action_executed
+    c = Conversation.create
+    c.read_exit = false
+    c.view!
+    c.junk!
+    assert c.read_exit
+  end
+  
+  def test_entry_and_exit_not_run_on_loopback_transition
+    c = Conversation.create
+    c.view!
+    c.read_enter = false
+    c.read_exit  = false
+    c.view!
+    assert !c.read_enter
+    assert !c.read_exit
   end
   
   def test_find_all_in_state

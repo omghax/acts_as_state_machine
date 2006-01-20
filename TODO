@@ -6,6 +6,9 @@
 * Make listing states optional since they can be inferred from the events.
   Only required to list a state if you want to define a transition block for it.
 
-* Real transition actions and state entry/exit actions
+* Real transition actions
 
 * Default states
+
+* Entry/exit actions and guards can be a symbol representing a method name
+  instead of a proc.

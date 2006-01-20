@@ -1,11 +1,13 @@
 class Conversation < ActiveRecord::Base
   attr_writer :can_close
+  attr_accessor :read_enter, :read_exit
   
   acts_as_state_machine :initial => :needs_attention, :column => 'state_machine'
   
   state :needs_attention
-  state :read
-  state :closed, Proc.new { |o| o.update_attribute :closed, true }
+  state :read, :enter => Proc.new { |o| o.read_enter = true },
+               :exit  => Proc.new { |o| o.read_exit  = true }
+  state :closed
   state :awaiting_response
   state :junk
   
@@ -14,7 +16,7 @@ class Conversation < ActiveRecord::Base
   end
 
   event :view do
-    transitions :to => :read,              :from => :needs_attention
+    transitions :to => :read,              :from => [:needs_attention, :read]
   end
   
   event :reply do

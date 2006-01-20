@@ -116,10 +116,13 @@ module RailsStudio                   #:nodoc:
             next_states = next_states_for_event(:#{event.to_s})
             next_states.each do |ns|
               if ns.guard(self)
+                loopback = current_state == ns.to
+                exitact  = self.class.read_inheritable_attribute(:states)[current_state][:exit]
+                enteract = self.class.read_inheritable_attribute(:states)[ns.to][:enter]
+                
+                enteract.call(self) if enteract && !loopback
                 self.update_attribute(self.class.state_column, ns.to.to_s)
-                if (p = self.class.read_inheritable_attribute(:states)[ns.to])
-                  p.call self
-                end
+                exitact.call(self) if exitact && !loopback
                 break
               end
             end
@@ -157,8 +160,8 @@ module RailsStudio                   #:nodoc:
         #   state :open
         #   state :closed, Proc.new { |o| Mailer.send_notice(o) }
         # end
-        def state(state, proc=nil)
-          read_inheritable_attribute(:states)[state.to_sym] = proc
+        def state(state, opts={})
+          read_inheritable_attribute(:states)[state.to_sym] = opts
           
           class_eval <<-EOS
             def #{state.to_s}?
