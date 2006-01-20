@@ -18,7 +18,7 @@ module RailsStudio                   #:nodoc:
           end
           
           def guard(obj)
-            @guard ? @guard.call(obj) : true
+            @guard ? obj.send(:run_transition_action, @guard) : true
           end
           
           def ==(obj)
@@ -79,6 +79,15 @@ module RailsStudio                   #:nodoc:
             s.from == current_state
           end
         end
+
+        def run_transition_action(action)
+          if action.kind_of?(Symbol)
+            self.method(action).call
+          else
+            action.call(self)
+          end
+        end
+        private :run_transition_action
       end
 
       module ClassMethods
@@ -120,9 +129,11 @@ module RailsStudio                   #:nodoc:
                 exitact  = self.class.read_inheritable_attribute(:states)[current_state][:exit]
                 enteract = self.class.read_inheritable_attribute(:states)[ns.to][:enter]
                 
-                enteract.call(self) if enteract && !loopback
+                run_transition_action(enteract) if enteract && !loopback
+                
                 self.update_attribute(self.class.state_column, ns.to.to_s)
-                exitact.call(self) if exitact && !loopback
+                
+                run_transition_action(exitact) if exitact && !loopback
                 break
               end
             end

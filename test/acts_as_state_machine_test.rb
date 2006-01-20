@@ -117,6 +117,11 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
     assert !c.read_exit
   end
   
+  def test_run_transition_action_is_private
+    c = Conversation.create
+    assert_raise(NoMethodError) { c.run_transition_action :foo }
+  end
+  
   def test_find_all_in_state
     cs = Conversation.find_in_state(:all, :read)
     
