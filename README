@@ -15,7 +15,7 @@ If prompted, use the user/pass anonymous/anonymous.
    acts_as_state_machine :initial => :opened
 
    state :opened
-   state :closed, Proc.new {|o| Mailer.send_notice(o)}
+   state :closed, :enter => Proc.new {|o| Mailer.send_notice(o)}
    state :returned
 
    event :close do
