@@ -128,21 +128,34 @@ module RailsStudio                   #:nodoc:
                 loopback = current_state == ns.to
                 exitact  = self.class.read_inheritable_attribute(:states)[current_state][:exit]
                 enteract = self.class.read_inheritable_attribute(:states)[ns.to][:enter]
-                
+                afteractions = self.class.read_inheritable_attribute(:states)[ns.to][:after]
+
+                if afteractions
+                  unless afteractions.kind_of? Array
+                    afteractions = [afteractions]
+                  end
+                else
+                  afteractions = []
+                end
+
                 run_transition_action(enteract) if enteract && !loopback
-                
+
                 self.update_attribute(self.class.state_column, ns.to.to_s)
-                
+
+                afteractions.each do |afteract|
+                    run_transition_action(afteract) if !loopback
+                end
+
                 run_transition_action(exitact) if exitact && !loopback
                 break
               end
             end
           end
           EOV
-          
+
           tt = read_inheritable_attribute(:transition_table)
           tt[event.to_sym] ||= []
-          
+
           if block_given?
             t = SupportingClasses::TransitionCollector.new
             t.instance_eval(&block)

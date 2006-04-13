@@ -81,24 +81,62 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
     c.close!
     assert_equal :read, c.current_state
   end
-  
+
   def test_ignore_invalid_events
     c = Conversation.create
     c.view!
     c.junk!
-    
+
     # This is the invalid event
     c.new_message!
     assert_equal :junk, c.current_state
   end
-    
+
   def test_entry_action_executed
     c = Conversation.create
     c.read_enter = false
     c.view!
     assert c.read_enter
   end
-  
+
+  def test_after_actions_executed
+    c = Conversation.create
+
+    c.read_after_first = false
+    c.read_after_second = false
+    c.closed_after = false
+
+    c.view!
+    assert c.read_after_first
+    assert c.read_after_second
+
+    c.can_close = true
+    c.close!
+
+    assert c.closed_after
+    assert_equal :closed, c.current_state
+  end
+
+  def test_after_actions_not_run_on_loopback_transition
+    c = Conversation.create
+
+    c.view!
+    c.read_after_first = false
+    c.read_after_second = false
+    c.view!
+
+    assert !c.read_after_first
+    assert !c.read_after_second
+
+    c.can_close = true
+
+    c.close!
+    c.closed_after = false
+    c.close!
+
+    assert !c.closed_after
+  end
+
   def test_exit_action_executed
     c = Conversation.create
     c.read_exit = false
