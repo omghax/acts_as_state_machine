@@ -11,14 +11,58 @@ module ScottBarron                   #:nodoc:
       end
       
       module SupportingClasses
+        class State
+          attr_reader :name
+        
+          def initialize(name, opts)
+            @name, @opts = name, opts
+          end
+        
+          def entering(record)
+            enteract = @opts[:enter]
+            record.send(:run_transition_action, enteract) if enteract
+          end
+        
+          def entered(record)
+            afteractions = @opts[:after]
+            return unless afteractions
+            Array(afteractions).each do |afteract|
+              record.send(:run_transition_action, afteract)
+            end
+          end
+        
+          def exited(record)
+            exitact  = @opts[:exit]
+            record.send(:run_transition_action, exitact) if exitact
+          end
+        end
+
         class StateTransition
-          attr_reader :from, :to
-          def initialize(from, to, guard=nil)
-            @from, @to, @guard = from, to, guard
+          attr_reader :from, :to, :opts
+          
+          def initialize(opts)
+            @from, @to, @guard = opts[:from], opts[:to], opts[:guard]
+            @opts = opts
           end
           
           def guard(obj)
             @guard ? obj.send(:run_transition_action, @guard) : true
+          end
+
+          def perform(record)
+            return false unless guard(record)
+            loopback = record.current_state == to
+            states = record.class.read_inheritable_attribute(:states)
+            next_state = states[to]
+            old_state = states[record.current_state]
+          
+            next_state.entering(record) unless loopback
+          
+            record.update_attribute(record.class.state_column, to.to_s)
+          
+            next_state.entered(record) unless loopback
+            old_state.exited(record) unless loopback
+            true
           end
           
           def ==(obj)
@@ -26,10 +70,35 @@ module ScottBarron                   #:nodoc:
           end
         end
         
-        class TransitionCollector
+        class Event
+          attr_reader :name
+          attr_reader :transitions
           attr_reader :opts
-          def transitions(opts)
-            (@opts ||= []) << opts
+
+          def initialize(name, opts, transition_table, &block)
+            @name = name.to_sym
+            @transitions = transition_table[@name] = []
+            instance_eval(&block) if block
+            @opts = opts
+            @opts.freeze
+            @transitions.freeze
+            freeze
+          end
+          
+          def next_states(record)
+            @transitions.select { |t| t.from == record.current_state }
+          end
+          
+          def fire(record)
+            next_states(record).each do |transition|
+              break if transition.perform(record)
+            end
+          end
+          
+          def transitions(trans_opts)
+            Array(trans_opts[:from]).each do |s|
+              @transitions << SupportingClasses::StateTransition.new(trans_opts.merge({:from => s.to_sym}))
+            end
           end
         end
       end
@@ -46,21 +115,30 @@ module ScottBarron                   #:nodoc:
           write_inheritable_attribute :states, {}
           write_inheritable_attribute :initial_state, opts[:initial]
           write_inheritable_attribute :transition_table, {}
+          write_inheritable_attribute :event_table, {}
           write_inheritable_attribute :state_column, opts[:column] || 'state'
           
           class_inheritable_reader    :initial_state
           class_inheritable_reader    :state_column
           class_inheritable_reader    :transition_table
+          class_inheritable_reader    :event_table
           
           self.send(:include, ScottBarron::Acts::StateMachine::InstanceMethods)
 
           before_create               :set_initial_state
+          after_create                :run_initial_state_actions
         end
       end
       
       module InstanceMethods
         def set_initial_state #:nodoc:
           write_attribute self.class.state_column, self.class.initial_state.to_s
+        end
+
+        def run_initial_state_actions
+          initial = self.class.read_inheritable_attribute(:states)[self.class.initial_state.to_sym]
+          initial.entering(self)
+          initial.entered(self)
         end
       
         # Returns the current state the object is in, as a Ruby symbol.
@@ -81,11 +159,7 @@ module ScottBarron                   #:nodoc:
         end
 
         def run_transition_action(action)
-          if action.kind_of?(Symbol)
-            self.method(action).call
-          else
-            action.call(self)
-          end
+          Symbol === action ? self.method(action).call : action.call(self)
         end
         private :run_transition_action
       end
@@ -119,57 +193,14 @@ module ScottBarron                   #:nodoc:
         # This creates an instance method used for firing the event.  The method
         # created is the name of the event followed by an exclamation point (!).
         # Example: <tt>order.close_order!</tt>.
-        def event(event, &block)
-          define_method("#{event.to_s}!") {
-            next_states = next_states_for_event(event)
-            next_states.each do |ns|
-              if ns.guard(self)
-                loopback = current_state == ns.to
-                exitact  = self.class.read_inheritable_attribute(:states)[current_state][:exit]
-                enteract = self.class.read_inheritable_attribute(:states)[ns.to][:enter]
-                afteractions = self.class.read_inheritable_attribute(:states)[ns.to][:after]
-
-                if afteractions
-                  unless afteractions.kind_of? Array
-                    afteractions = [afteractions]
-                  end
-                else
-                  afteractions = []
-                end
-
-                run_transition_action(enteract) if enteract && !loopback
-
-                self.update_attribute(self.class.state_column, ns.to.to_s)
-
-                afteractions.each do |afteract|
-                    run_transition_action(afteract) if !loopback
-                end
-
-                run_transition_action(exitact) if exitact && !loopback
-                break
-              end
-            end            
-          }
-
+        def event(event, opts={}, &block)
           tt = read_inheritable_attribute(:transition_table)
-          tt[event.to_sym] ||= []
-
-          if block_given?
-            t = SupportingClasses::TransitionCollector.new
-            t.instance_eval(&block)
-            trannys = t.opts
-            trannys.each do |tranny|
-              Array(tranny[:from]).each do |s|
-                tt[event.to_sym] << SupportingClasses::StateTransition.new(s.to_sym, tranny[:to], tranny[:guard])
-              end
-            end
-          end
+          
+          et = read_inheritable_attribute(:event_table)
+          e = et[event.to_sym] = SupportingClasses::Event.new(event, opts, tt, &block)
+          define_method("#{event.to_s}!") { e.fire(self) }
         end
         
-        def transitions(opts)        #:nodoc:
-          opts
-        end
-
         # Define a state of the system. +state+ can take an optional Proc object
         # which will be executed every time the system transitions into that
         # state.  The proc will be passed the current object.
@@ -182,10 +213,11 @@ module ScottBarron                   #:nodoc:
         #   state :open
         #   state :closed, Proc.new { |o| Mailer.send_notice(o) }
         # end
-        def state(state, opts={})
-          read_inheritable_attribute(:states)[state.to_sym] = opts
-          
-          define_method("#{state.to_s}?") { current_state == state }
+        def state(name, opts={})
+          state = SupportingClasses::State.new(name.to_sym, opts)
+          read_inheritable_attribute(:states)[name.to_sym] = state
+        
+          define_method("#{state.name}?") { current_state == state.name }
         end
         
         # Wraps ActiveRecord::Base.find to conveniently find all records in

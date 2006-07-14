@@ -1,10 +1,13 @@
 class Conversation < ActiveRecord::Base
   attr_writer :can_close
-  attr_accessor :read_enter, :read_exit, :read_after_first, :read_after_second, :closed_after
+  attr_accessor :read_enter, :read_exit, :read_after_first, :read_after_second,
+                :closed_after, :needs_attention_enter, :needs_attention_after
 
   acts_as_state_machine :initial => :needs_attention, :column => 'state_machine'
 
-  state :needs_attention
+  state :needs_attention, :enter => Proc.new { |o| o.needs_attention_enter = true },
+                          :after => Proc.new { |o| o.needs_attention_after = true }
+                          
   state :read, :enter => :read_enter_action,
                :exit  => Proc.new { |o| o.read_exit  = true },
                :after => [:read_after_first_action, :read_after_second_action]
@@ -30,7 +33,7 @@ class Conversation < ActiveRecord::Base
     transitions :to => :read,              :from => [:read, :awaiting_response], :guard => :always_true
   end
 
-  event :junk do
+  event :junk, :note => "finished" do
     transitions :to => :junk,              :from => [:read, :closed, :awaiting_response]
   end
 
