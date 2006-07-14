@@ -120,9 +120,8 @@ module RailsStudio                   #:nodoc:
         # created is the name of the event followed by an exclamation point (!).
         # Example: <tt>order.close_order!</tt>.
         def event(event, &block)
-          class_eval <<-EOV
-          def #{event.to_s}!
-            next_states = next_states_for_event(:#{event.to_s})
+          define_method("#{event.to_s}!") {
+            next_states = next_states_for_event(event)
             next_states.each do |ns|
               if ns.guard(self)
                 loopback = current_state == ns.to
@@ -149,9 +148,8 @@ module RailsStudio                   #:nodoc:
                 run_transition_action(exitact) if exitact && !loopback
                 break
               end
-            end
-          end
-          EOV
+            end            
+          }
 
           tt = read_inheritable_attribute(:transition_table)
           tt[event.to_sym] ||= []
