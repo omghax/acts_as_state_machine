@@ -1,6 +1,6 @@
 require File.dirname(__FILE__) + '/test_helper'
 
-include RailsStudio::Acts::StateMachine
+include ScottBarron::Acts::StateMachine
 
 class ActsAsStateMachineTest < Test::Unit::TestCase
   fixtures :conversations

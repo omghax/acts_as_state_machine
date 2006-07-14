@@ -1,4 +1,4 @@
-module RailsStudio                   #:nodoc:
+module ScottBarron                   #:nodoc:
   module Acts                        #:nodoc:
     module StateMachine              #:nodoc:
       class InvalidState < Exception #:nodoc:
@@ -52,7 +52,7 @@ module RailsStudio                   #:nodoc:
           class_inheritable_reader    :state_column
           class_inheritable_reader    :transition_table
           
-          self.send(:include, RailsStudio::Acts::StateMachine::InstanceMethods)
+          self.send(:include, ScottBarron::Acts::StateMachine::InstanceMethods)
 
           before_create               :set_initial_state
         end
