@@ -52,7 +52,7 @@ module RailsStudio                   #:nodoc:
           class_inheritable_reader    :state_column
           class_inheritable_reader    :transition_table
           
-          class_eval "include RailsStudio::Acts::StateMachine::InstanceMethods"
+          self.send(:include, RailsStudio::Acts::StateMachine::InstanceMethods)
 
           before_create               :set_initial_state
         end
