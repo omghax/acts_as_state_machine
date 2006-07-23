@@ -223,20 +223,13 @@ module ScottBarron                   #:nodoc:
         # Wraps ActiveRecord::Base.find to conveniently find all records in
         # a given state.  Options:
         #
-        # * +number+ - This is just :first or :all from ActiveRecord
+        # * +number+ - This is just :first or :all from ActiveRecord +find+
         # * +state+ - The state to find
         # * +args+ - The rest of the args are passed down to ActiveRecord +find+
         def find_in_state(number, state, *args)
-          raise InvalidState unless states.include?(state)
-          
-          options = args.last.is_a?(Hash) ? args.pop : {}
-          if options[:conditions]
-            options[:conditions].first << " AND #{self.state_column} = ?"
-            options[:conditions] << state.to_s
-          else
-            options[:conditions] = ["#{self.state_column} = ?", state.to_s]
+          with_state_scope state do
+            find(number, *args)
           end
-          self.find(number, options)
         end
         
         # Wraps ActiveRecord::Base.count to conveniently count all records in
@@ -244,16 +237,30 @@ module ScottBarron                   #:nodoc:
         #
         # * +state+ - The state to find
         # * +args+ - The rest of the args are passed down to ActiveRecord +find+
-        def count_in_state(state, conditions=nil)
+        def count_in_state(state, *args)
+          with_state_scope state do
+            count(*args)
+          end
+        end
+        
+        # Wraps ActiveRecord::Base.calculate to conveniently calculate all records in
+        # a given state.  Options:
+        #
+        # * +state+ - The state to find
+        # * +args+ - The rest of the args are passed down to ActiveRecord +calculate+
+        def calculate_in_state(state, *args)
+          with_state_scope state do
+            calculate(*args)
+          end
+        end
+        
+        protected
+        def with_state_scope(state)
           raise InvalidState unless states.include?(state)
           
-          if conditions
-            conditions.first << " AND #{self.state_column} = ?"
-            conditions << state.to_s
-          else
-            conditions = ["#{self.state_column} = ?", state.to_s]
+          with_scope :find => {:conditions => ["#{table_name}.#{state_column} = ?", state.to_s]} do
+            yield if block_given?
           end
-          self.count(conditions)
         end
       end
     end
