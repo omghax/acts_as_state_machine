@@ -91,7 +91,7 @@ module ScottBarron                   #:nodoc:
           
           def fire(record)
             next_states(record).each do |transition|
-              break if transition.perform(record)
+              break true if transition.perform(record)
             end
           end
           
