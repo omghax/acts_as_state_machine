@@ -8,22 +8,19 @@ require 'active_record/fixtures'
 require "#{File.dirname(__FILE__)}/../init"
 
 
-config = YAML::load(IO.read(File.dirname(__FILE__) + '/database.yml'))
 ActiveRecord::Base.logger = Logger.new(File.dirname(__FILE__) + "/debug.log")
-ActiveRecord::Base.establish_connection(config[ENV['DB'] || 'sqlite'])
+ActiveRecord::Base.configurations = YAML::load(IO.read(File.dirname(__FILE__) + '/database.yml'))
+ActiveRecord::Base.establish_connection(ENV["DB"] || "sqlite")
 
+ActiveRecord::Migration.verbose = false
 load(File.dirname(__FILE__) + "/schema.rb") if File.exist?(File.dirname(__FILE__) + "/schema.rb")
 
 Test::Unit::TestCase.fixture_path = File.dirname(__FILE__) + "/fixtures/"
 $LOAD_PATH.unshift(Test::Unit::TestCase.fixture_path)
 
 class Test::Unit::TestCase #:nodoc:
-  def create_fixtures(*table_names)
-    if block_given?
-      Fixtures.create_fixtures(Test::Unit::TestCase.fixture_path, table_names) { yield }
-    else
-      Fixtures.create_fixtures(Test::Unit::TestCase.fixture_path, table_names)
-    end
+  def create_fixtures(*table_names, &block)
+    Fixtures.create_fixtures(Test::Unit::TestCase.fixture_path, table_names, &block)
   end
 
   # Turn off transactional fixtures if you're working with MyISAM tables in MySQL

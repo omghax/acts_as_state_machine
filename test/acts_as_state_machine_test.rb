@@ -1,9 +1,8 @@
 require File.dirname(__FILE__) + '/test_helper'
 
-include ScottBarron::Acts::StateMachine
-
 class ActsAsStateMachineTest < Test::Unit::TestCase
-  fixtures :conversations
+  include ScottBarron::Acts::StateMachine
+  fixtures :conversations, :people
   
   def test_no_initial_value_raises_exception
     assert_raise(NoInitialState) {
@@ -191,15 +190,15 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
   end
   
   def test_count_in_state
-    cnt0 = Conversation.count(['state_machine = ?', 'read'])
+    cnt0 = Conversation.count(:conditions => ['state_machine = ?', 'read'])
     cnt  = Conversation.count_in_state(:read)
     
     assert_equal cnt0, cnt
   end
   
   def test_count_in_state_with_conditions
-    cnt0 = Conversation.count(['state_machine = ? AND subject = ?', 'read', 'Foo'])
-    cnt  = Conversation.count_in_state(:read, ['subject = ?', 'Foo'])
+    cnt0 = Conversation.count(:conditions => ['state_machine = ? AND subject = ?', 'read', 'Foo'])
+    cnt  = Conversation.count_in_state(:read, :conditions => ['subject = ?', 'Foo'])
     
     assert_equal cnt0, cnt
   end
