@@ -1,0 +1,4 @@
+!log*.rb
+*.log
+.DS_Store
+*.db
