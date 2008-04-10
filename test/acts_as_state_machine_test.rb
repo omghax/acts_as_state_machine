@@ -1,4 +1,70 @@
-require File.dirname(__FILE__) + '/test_helper'
+RAILS_ROOT = File.dirname(__FILE__)
+
+require "rubygems"
+require "test/unit"
+require "active_record"
+require "active_record/fixtures"
+
+$:.unshift File.dirname(__FILE__) + "/../lib"
+require File.dirname(__FILE__) + "/../init"
+
+# Log everything to a global StringIO object instead of a file.
+require "stringio"
+$LOG = StringIO.new
+$LOGGER = Logger.new($LOG)
+ActiveRecord::Base.logger = $LOGGER
+
+# ActiveRecord::Base.logger = Logger.new(File.dirname(__FILE__) + "/debug.log")
+ActiveRecord::Base.configurations = {
+  "sqlite" => {
+    :adapter => "sqlite",
+    :dbfile  => "state_machine.sqlite.db"
+  },
+
+  "sqlite3" => {
+    :adapter => "sqlite3",
+    :dbfile  => "state_machine.sqlite3.db"
+  },
+
+  "mysql" => {
+    :adapter  => "mysql",
+    :host     => "localhost",
+    :username => "rails",
+    :password => nil,
+    :database => "state_machine_test"
+  },
+
+  "postgresql" => {
+    :min_messages => "ERROR",
+    :adapter      => "postgresql",
+    :username     => "postgres",
+    :password     => "postgres",
+    :database     => "state_machine_test"
+  }
+}
+
+# Connect to the database.
+ActiveRecord::Base.establish_connection(ENV["DB"] || "sqlite")
+
+# Create table for conversations.
+ActiveRecord::Migration.verbose = false
+ActiveRecord::Schema.define(:version => 1) do
+  create_table :conversations, :force => true do |t|
+    t.column :state_machine, :string
+    t.column :subject,       :string
+    t.column :closed,        :boolean
+  end
+end
+
+class Test::Unit::TestCase
+  self.fixture_path = File.dirname(__FILE__) + "/fixtures/"
+  self.use_transactional_fixtures = true
+  self.use_instantiated_fixtures  = false
+
+  def create_fixtures(*table_names, &block)
+    Fixtures.create_fixtures(Test::Unit::TestCase.fixture_path, table_names, &block)
+  end
+end
 
 class Conversation < ActiveRecord::Base
   attr_writer :can_close
