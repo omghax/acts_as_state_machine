@@ -108,7 +108,7 @@ module ScottBarron                   #:nodoc:
         #
         # * +column+ - specifies the column name to use for keeping the state (default: state)
         # * +initial+ - specifies an initial state for newly created objects (required)
-        def acts_as_state_machine(opts)
+        def acts_as_state_machine(opts = {})
           self.extend(ClassMethods)
           raise NoInitialState unless opts[:initial]
           
