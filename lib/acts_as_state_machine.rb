@@ -11,29 +11,29 @@ module ScottBarron                   #:nodoc:
       end
 
       module SupportingClasses
+        # Default transition action.  Always returns true.
+        NOOP = lambda { |o| true }
+
         class State
           attr_reader :name
 
-          def initialize(name, opts)
-            @name, @opts = name, opts
+          def initialize(name, options)
+            @name  = name
+            @after = Array(options[:after])
+            @enter = options[:enter] || NOOP
+            @exit  = options[:exit] || NOOP
           end
 
           def entering(record)
-            enteract = @opts[:enter]
-            record.send(:run_transition_action, enteract) if enteract
+            record.send(:run_transition_action, @enter)
           end
 
           def entered(record)
-            afteractions = @opts[:after]
-            return unless afteractions
-            Array(afteractions).each do |afteract|
-              record.send(:run_transition_action, afteract)
-            end
+            @after.each { |action| record.send(:run_transition_action, action) }
           end
 
           def exited(record)
-            exitact  = @opts[:exit]
-            record.send(:run_transition_action, exitact) if exitact
+            record.send(:run_transition_action, @exit)
           end
         end
 
