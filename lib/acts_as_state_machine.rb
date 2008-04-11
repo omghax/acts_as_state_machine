@@ -108,25 +108,27 @@ module ScottBarron                   #:nodoc:
         #
         # * +column+ - specifies the column name to use for keeping the state (default: state)
         # * +initial+ - specifies an initial state for newly created objects (required)
-        def acts_as_state_machine(opts = {})
-          self.extend(ClassMethods)
-          raise NoInitialState unless opts[:initial]
+        def acts_as_state_machine(options = {})
+          class_eval do
+            extend ClassMethods
+            include InstanceMethods
 
-          write_inheritable_attribute :states, {}
-          write_inheritable_attribute :initial_state, opts[:initial]
-          write_inheritable_attribute :transition_table, {}
-          write_inheritable_attribute :event_table, {}
-          write_inheritable_attribute :state_column, opts[:column] || 'state'
+            raise NoInitialState unless options[:initial]
 
-          class_inheritable_reader    :initial_state
-          class_inheritable_reader    :state_column
-          class_inheritable_reader    :transition_table
-          class_inheritable_reader    :event_table
+            write_inheritable_attribute :states, {}
+            write_inheritable_attribute :initial_state, options[:initial]
+            write_inheritable_attribute :transition_table, {}
+            write_inheritable_attribute :event_table, {}
+            write_inheritable_attribute :state_column, options[:column] || 'state'
 
-          self.send(:include, ScottBarron::Acts::StateMachine::InstanceMethods)
+            class_inheritable_reader    :initial_state
+            class_inheritable_reader    :state_column
+            class_inheritable_reader    :transition_table
+            class_inheritable_reader    :event_table
 
-          before_create               :set_initial_state
-          after_create                :run_initial_state_actions
+            before_create               :set_initial_state
+            after_create                :run_initial_state_actions
+          end
         end
       end
 
