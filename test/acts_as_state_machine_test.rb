@@ -14,7 +14,6 @@ $LOG = StringIO.new
 $LOGGER = Logger.new($LOG)
 ActiveRecord::Base.logger = $LOGGER
 
-# ActiveRecord::Base.logger = Logger.new(File.dirname(__FILE__) + "/debug.log")
 ActiveRecord::Base.configurations = {
   "sqlite" => {
     :adapter => "sqlite",
