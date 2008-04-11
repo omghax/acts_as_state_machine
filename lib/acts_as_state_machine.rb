@@ -18,7 +18,7 @@ module ScottBarron                   #:nodoc:
           attr_reader :name
 
           def initialize(name, options)
-            @name  = name
+            @name  = name.to_sym
             @after = Array(options[:after])
             @enter = options[:enter] || NOOP
             @exit  = options[:exit] || NOOP
@@ -216,7 +216,7 @@ module ScottBarron                   #:nodoc:
         #   state :closed, Proc.new { |o| Mailer.send_notice(o) }
         # end
         def state(name, opts={})
-          state = SupportingClasses::State.new(name.to_sym, opts)
+          state = SupportingClasses::State.new(name, opts)
           read_inheritable_attribute(:states)[name.to_sym] = state
 
           define_method("#{state.name}?") { current_state == state.name }
