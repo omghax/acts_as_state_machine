@@ -198,8 +198,8 @@ module ScottBarron                   #:nodoc:
         def event(event, opts={}, &block)
           tt = read_inheritable_attribute(:transition_table)
 
-          et = read_inheritable_attribute(:event_table)
-          e = et[event.to_sym] = SupportingClasses::Event.new(event, opts, tt, &block)
+          e = SupportingClasses::Event.new(event, opts, tt, &block)
+          write_inheritable_hash(:event_table, event.to_sym => e)
           define_method("#{event.to_s}!") { e.fire(self) }
         end
 
@@ -217,7 +217,7 @@ module ScottBarron                   #:nodoc:
         # end
         def state(name, opts={})
           state = SupportingClasses::State.new(name, opts)
-          read_inheritable_attribute(:states)[name.to_sym] = state
+          write_inheritable_hash(:states, name.to_sym => state)
 
           define_method("#{state.name}?") { current_state == state.name }
         end
