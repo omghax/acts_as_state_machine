@@ -369,8 +369,8 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
       state :needs_attention
       state :closed, :after => :closed_after_action
       state :read, :enter => :read_enter_action,
-                   :exit  => Proc.new { |o| o.read_exit = true },
-                   :after => [:read_after_first_action, :read_after_second_action]
+      :exit  => Proc.new { |o| o.read_exit = true },
+      :after => [:read_after_first_action, :read_after_second_action]
 
       event :view do
         transitions :to => :read, :from => [:needs_attention, :read]
@@ -480,7 +480,7 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
     Conversation.class_eval do
       acts_as_state_machine :initial => :needs_attention
       state :needs_attention, :enter => lambda { |o| o.needs_attention_enter = true },
-                              :after => lambda { |o| o.needs_attention_after = true }
+      :after => lambda { |o| o.needs_attention_after = true }
     end
 
     c = Conversation.create!
@@ -608,5 +608,24 @@ class ActsAsStateMachineTest < Test::Unit::TestCase
     event = Conversation.event_table[:junk]
     assert_equal :junk, event.name
     assert_equal "finished", event.opts[:note]
+  end
+
+  def test_custom_state_values
+    Conversation.class_eval do
+      acts_as_state_machine :initial => "NEEDS_ATTENTION", :column => "state_machine"
+      state :needs_attention, :value => "NEEDS_ATTENTION"
+      state :read, :value => "READ"
+
+      event :view do
+        transitions :to => "READ", :from => ["NEEDS_ATTENTION", "READ"]
+      end
+    end
+
+    c = Conversation.create!
+    assert_equal "NEEDS_ATTENTION", c.state_machine
+    assert c.needs_attention?
+    c.view!
+    assert_equal "READ", c.state_machine
+    assert c.read?
   end
 end

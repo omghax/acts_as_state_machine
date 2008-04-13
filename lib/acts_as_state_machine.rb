@@ -15,10 +15,11 @@ module ScottBarron                   #:nodoc:
         NOOP = lambda { |o| true }
 
         class State
-          attr_reader :name
+          attr_reader :name, :value
 
           def initialize(name, options)
             @name  = name.to_sym
+            @value = (options[:value] || @name).to_s
             @after = Array(options[:after])
             @enter = options[:enter] || NOOP
             @exit  = options[:exit] || NOOP
@@ -40,9 +41,11 @@ module ScottBarron                   #:nodoc:
         class StateTransition
           attr_reader :from, :to, :opts
 
-          def initialize(opts)
-            @from, @to, @guard = opts[:from], opts[:to], opts[:guard]
-            @opts = opts
+          def initialize(options)
+            @from  = options[:from].to_s
+            @to    = options[:to].to_s
+            @guard = options[:guard] || NOOP
+            @opts  = options
           end
 
           def guard(obj)
@@ -51,14 +54,14 @@ module ScottBarron                   #:nodoc:
 
           def perform(record)
             return false unless guard(record)
-            loopback = record.current_state == to
+            loopback = record.current_state.to_s == to
             states = record.class.read_inheritable_attribute(:states)
             next_state = states[to]
-            old_state = states[record.current_state]
+            old_state = states[record.current_state.to_s]
 
             next_state.entering(record) unless loopback
 
-            record.update_attribute(record.class.state_column, to.to_s)
+            record.update_attribute(record.class.state_column, next_state.value)
 
             next_state.entered(record) unless loopback
             old_state.exited(record) unless loopback
@@ -86,7 +89,7 @@ module ScottBarron                   #:nodoc:
           end
 
           def next_states(record)
-            @transitions.select { |t| t.from == record.current_state }
+            @transitions.select { |t| t.from == record.current_state.to_s }
           end
 
           def fire(record)
@@ -138,7 +141,7 @@ module ScottBarron                   #:nodoc:
         end
 
         def run_initial_state_actions
-          initial = self.class.read_inheritable_attribute(:states)[self.class.initial_state.to_sym]
+          initial = self.class.read_inheritable_attribute(:states)[self.class.initial_state.to_s]
           initial.entering(self)
           initial.entered(self)
         end
@@ -151,12 +154,12 @@ module ScottBarron                   #:nodoc:
         # Returns what the next state for a given event would be, as a Ruby symbol.
         def next_state_for_event(event)
           ns = next_states_for_event(event)
-          ns.empty? ? nil : ns.first.to
+          ns.empty? ? nil : ns.first.to.to_sym
         end
 
         def next_states_for_event(event)
           self.class.read_inheritable_attribute(:transition_table)[event.to_sym].select do |s|
-            s.from == current_state
+            s.from == current_state.to_s
           end
         end
 
@@ -169,7 +172,7 @@ module ScottBarron                   #:nodoc:
       module ClassMethods
         # Returns an array of all known states.
         def states
-          read_inheritable_attribute(:states).keys
+          read_inheritable_attribute(:states).keys.collect { |state| state.to_sym }
         end
 
         # Define an event.  This takes a block which describes all valid transitions
@@ -217,9 +220,9 @@ module ScottBarron                   #:nodoc:
         # end
         def state(name, opts={})
           state = SupportingClasses::State.new(name, opts)
-          write_inheritable_hash(:states, name.to_sym => state)
+          write_inheritable_hash(:states, state.value => state)
 
-          define_method("#{state.name}?") { current_state == state.name }
+          define_method("#{state.name}?") { current_state.to_s == state.value }
         end
 
         # Wraps ActiveRecord::Base.find to conveniently find all records in
@@ -258,7 +261,7 @@ module ScottBarron                   #:nodoc:
 
         protected
         def with_state_scope(state)
-          raise InvalidState unless states.include?(state)
+          raise InvalidState unless states.include?(state.to_sym)
 
           with_scope :find => {:conditions => ["#{table_name}.#{state_column} = ?", state.to_s]} do
             yield if block_given?
